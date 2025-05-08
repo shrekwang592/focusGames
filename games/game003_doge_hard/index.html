@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dodge the Balls!</title>
+    <style>
+        #game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 800px; /* Or whatever width you prefer */
+            /* You might want to avoid setting a fixed height here to allow flexibility */
+        }
+
+        #game-container .controls {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-bottom: 10px;
+            width: 100%; /* Make controls take full width of container */
+        }
+
+        #game-container .control-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+            width: 100%; /* Make control items take full width */
+        }
+
+        #game-container .control-item label {
+            margin-right: 10px;
+            flex-shrink: 0; /* Prevent label from shrinking */
+        }
+
+        #game-container .control-item input[type="number"],
+        #game-container .control-item input[type="text"] {
+            width: 80px;
+            padding: 5px;
+            font-size: 14px;
+        }
+
+        #game-container button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        #game-container #timerDisplay {
+            font-size: 16px;
+            margin-top: 10px;
+            width: 100%;
+            text-align: left; /* Align timer to the left within its container */
+        }
+
+        #game-container .leaderboard-container {
+            margin-top: 20px;
+            border: 1px solid #ccc;
+            padding: 15px;
+            border-radius: 5px;
+            width: 100%; /* Make leaderboard take full width */
+        }
+
+        #game-container .leaderboard-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-align: center; /* Center the leaderboard title */
+        }
+
+        #game-container #leaderboard {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        #game-container #leaderboard li {
+            margin-bottom: 5px;
+        }
+
+        #game-container #nameInputContainer {
+            display: none;
+            margin-top: 10px;
+            align-items: center;
+            width: 100%; /* Make name input container take full width */
+            justify-content: flex-start; /* Align items to the start */
+        }
+
+        #game-container #nameInputContainer label {
+            margin-right: 10px;
+            flex-shrink: 0; /* Prevent label from shrinking */
+        }
+
+        #game-container canvas {
+            display: block;
+            border: 1px solid #000;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div class="controls">
+            <p>Use the Arrow Keys (↑, ↓, ←, →) to move and dodge the red balls!</p>
+            <div class="control-item">
+                <label for="initialSpeed">Initial Speed:</label>
+                <input type="number" id="initialSpeed" value="8">
+            </div>
+            <div class="control-item">
+                <label for="initialSize">Initial Size:</label>
+                <input type="number" id="initialSize" value="30">
+            </div>
+            <div class="control-item">
+                <label for="maxBalls">Max Balls:</label>
+                <input type="number" id="maxBalls" value="65536">
+            </div>
+            <button id="startButton">Start a New Game</button>
+            <div id="timerDisplay">Time: 0.000s</div>
+        </div>
+        <div id="nameInputContainer">
+            <label for="playerName">Enter Your Name:</label>
+            <input type="text" id="playerName">
+            <button id="submitScoreButton">Submit Score</button>
+        </div>
+        <div class="leaderboard-container">
+            <div class="leaderboard-title">Leaderboard</div>
+            <ol id="leaderboard"></ol>
+        </div>
+        <canvas id="gameCanvas"></canvas>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+            const startButton = document.getElementById('startButton');
+            const timerDisplayElement = document.getElementById('timerDisplay');
+            const initialSpeedInput = document.getElementById('initialSpeed');
+            const initialSizeInput = document.getElementById('initialSize');
+            const maxBallsInput = document.getElementById('maxBalls');
+            const nameInputContainer = document.getElementById('nameInputContainer');
+            const playerNameInput = document.getElementById('playerName');
+            const submitScoreButton = document.getElementById('submitScoreButton');
+            const leaderboardElement = document.getElementById('leaderboard');
+
+            canvas.width = 800;
+            canvas.height = 600;
+
+            // Game state variables
+            let gameStarted = false;
+            let gameOver = false;
+            let intervalId;
+            let startTime;
+            let elapsedTime = 0;
+            let scores = loadScores(); // Load scores from localStorage
+
+            // Player properties
+            const pixelPlaneDesign = [
+                ['', '', '#888', '#888', '', ''],
+                ['#888', '#888', '#AAA', '#AAA', '#888', '#888'],
+                ['', '', '#888', '#888', '', ''],
+                ['', '#444', '#666', '#666', '#444', '']
+            ];
+
+            const pixelSize = 5;
+            const planeWidthInPixels = pixelPlaneDesign[0].length;
+            const planeHeightInPixels = pixelPlaneDesign.length;
+            const playerSize = planeWidthInPixels * pixelSize;
+            let playerX = canvas.width / 2 - playerSize / 2;
+            let playerY = canvas.height - 2 * playerSize;
+            const playerSpeed = 5;
+            let leftPressed = false;
+            let rightPressed = false;
+            let upPressed = false;
+            let downPressed = false;
+
+            // Ball properties
+            let balls = [];
+            const ballColor = 'red';
+            let maxInitialSpeed;
+            let initialBallRadius;
+            let maxBalls;
+
+            function createBall(x, y, radius, dx, dy, color) {
+                return { x, y, radius, dx, dy, color, hasSplit: false, bounceCount: 0 }; // Initialize bounceCount
+            }
+
+            function initializeGame() {
+                gameStarted = true;
+                gameOver = false;
+                elapsedTime = 0;
+                playerX = canvas.width / 2 - playerSize / 2;
+                playerY = canvas.height - 2 * playerSize;
+                balls = [];
+
+                // Get user-defined values
+                maxInitialSpeed = parseFloat(initialSpeedInput.value);
+                initialBallRadius = parseFloat(initialSizeInput.value);
+                maxBalls = parseInt(maxBallsInput.value);
+
+                initializeBalls();
+                startTime = Date.now();
+                startButton.style.display = 'none';
+                timerDisplayElement.style.display = 'none';
+                nameInputContainer.style.display = 'none'; // Hide name input at the start
+                if (intervalId) {
+                    clearInterval(intervalId);
+                }
+                intervalId = setInterval(gameLoop, 1000/60);
+            }
+
+            function initializeBalls() {
+                const startX = Math.random() * canvas.width;
+                const startY = Math.random() * canvas.height / 2;
+                const speedX = (Math.random() - 0.5) * maxInitialSpeed * 2;
+                const speedY = (Math.random() - 0.5) * maxInitialSpeed * 2;
+                balls.push(createBall(startX, startY, initialBallRadius, speedX, speedY, ballColor));
+            }
+
+            function drawBall(ball) {
+                ctx.beginPath();
+                ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+                ctx.fillStyle = ball.color;
+                ctx.fill();
+                ctx.closePath();
+            }
+
+            function drawPlayer() {
+                for (let y = 0; y < planeHeightInPixels; y++) {
+                    for (let x = 0; x < planeWidthInPixels; x++) {
+                        const color = pixelPlaneDesign[y][x];
+                        if (color) {
+                            ctx.fillStyle = color;
+                            ctx.fillRect(playerX + x * pixelSize, playerY + y * pixelSize, pixelSize, pixelSize);
+                        }
+                    }
+                }
+            }
+
+            function updateBalls() {
+                let newBalls = [];
+                const minSplitRadius = 3; // Define the minimum radius for splitting
+
+                for (let i = 0; i < balls.length; i++) {
+                    const ball = balls[i];
+                    ball.x += ball.dx;
+                    ball.y += ball.dy;
+
+                    let hasCollidedAndSplit = false;
+                    const currentSpeed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
+
+                    // Check for wall collisions
+                    if (ball.x - ball.radius < 0) {
+                        ball.x = ball.radius;
+                        ball.dx *= -1; // Bounce
+                        if (balls.length < maxBalls && ball.radius > minSplitRadius) {
+                            // Split
+                            const newRadius = ball.radius / 1.4;
+                            if (newRadius > 1) { // Ensure new balls have a reasonable minimum size
+                                const angle1 = Math.random() * Math.PI * 2;
+                                const newDx1 = Math.cos(angle1) * currentSpeed;
+                                const newDy1 = Math.sin(angle1) * currentSpeed;
+                                let newBall1 = createBall(ball.x, ball.y, newRadius, newDx1, newDy1, ball.color);
+                                newBalls.push(newBall1);
+
+                                const angle2 = Math.random() * Math.PI * 2;
+                                const newDx2 = Math.cos(angle2) * currentSpeed;
+                                const newDy2 = Math.sin(angle2) * currentSpeed;
+                                let newBall2 = createBall(ball.x, ball.y, newRadius, newDx2, newDy2, ball.color);
+                                newBalls.push(newBall2);
+                                hasCollidedAndSplit = true;
+                            }
+                        }
+                    } else if (ball.x + ball.radius > canvas.width) {
+                        ball.x = canvas.width - ball.radius;
+                        ball.dx *= -1; // Bounce
+                        if (balls.length < maxBalls && ball.radius > minSplitRadius) {
+                            // Split
+                            const newRadius = ball.radius / 1.4;
+                            if (newRadius > 1) { // Ensure new balls have a reasonable minimum size
+                                const angle1 = Math.random() * Math.PI * 2;
+                                const newDx1 = Math.cos(angle1) * currentSpeed;
+                                const newDy1 = Math.sin(angle1) * currentSpeed;
+                                let newBall1 = createBall(ball.x, ball.y, newRadius, newDx1, newDy1, ball.color);
+                                newBalls.push(newBall1);
+
+                                const angle2 = Math.random() * Math.PI * 2;
+                                const newDx2 = Math.cos(angle2) * currentSpeed;
+                                const newDy2 = Math.sin(angle2) * currentSpeed;
+                                let newBall2 = createBall(ball.x, ball.y, newRadius, newDx2, newDy2, ball.color);
+                                newBalls.push(newBall2);
+                                hasCollidedAndSplit = true;
+                            }
+                        }
+                    }
+
+                    if (ball.y - ball.radius < 0) {
+                        ball.y = ball.radius;
+                        ball.dy *= -1; // Bounce
+                        if (balls.length < maxBalls && ball.radius > minSplitRadius) {
+                            // Split
+                            const newRadius = ball.radius / 1.4;
+                            if (newRadius > 1) { // Ensure new balls have a reasonable minimum size
+                                const angle1 = Math.random() * Math.PI * 2;
+                                const newDx1 = Math.cos(angle1) * currentSpeed;
+                                const newDy1 = Math.sin(angle1) * currentSpeed;
+                                let newBall1 = createBall(ball.x, ball.y, newRadius, newDx1, newDy1, ball.color);
+                                newBalls.push(newBall1);
+
+                                const angle2 = Math.random() * Math.PI * 2;
+                                const newDx2 = Math.cos(angle2) * currentSpeed;
+                                const newDy2 = Math.sin(angle2) * currentSpeed;
+                                let newBall2 = createBall(ball.x, ball.y, newRadius, newDx2, newDy2, ball.color);
+                                newBalls.push(newBall2);
+                                hasCollidedAndSplit = true;
+                            }
+                        }
+                    } else if (ball.y + ball.radius > canvas.height) {
+                        ball.y = canvas.height - ball.radius;
+                        ball.dy *= -1; // Bounce
+                        if (balls.length < maxBalls && ball.radius > minSplitRadius) {
+                            // Split
+                            const newRadius = ball.radius / 1.4;
+                            if (newRadius > 1) { // Ensure new balls have a reasonable minimum size
+                                const angle1 = Math.random() * Math.PI * 2;
+                                const newDx1 = Math.cos(angle1) * currentSpeed;
+                                const newDy1 = Math.sin(angle1) * currentSpeed;
+                                let newBall1 = createBall(ball.x, ball.y, newRadius, newDx1, newDy1, ball.color);
+                                newBalls.push(newBall1);
+
+                                const angle2 = Math.random() * Math.PI * 2;
+                                const newDx2 = Math.cos(angle2) * currentSpeed;
+                                const newDy2 = Math.sin(angle2) * currentSpeed;
+                                let newBall2 = createBall(ball.x, ball.y, newRadius, newDx2, newDy2, ball.color);
+                                newBalls.push(newBall2);
+                                hasCollidedAndSplit = true;
+                            }
+                        }
+                    }
+
+                    if (!hasCollidedAndSplit) {
+                        newBalls.push(ball);
+                    }
+                }
+                balls = newBalls;
+            }
+
+            function gameLoop() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                if (gameStarted && !gameOver) {
+                    const currentTime = Date.now();
+                    elapsedTime = (currentTime - startTime) / 1000;
+                    timerDisplayElement.textContent = `Time: ${elapsedTime.toFixed(3)}s`;
+                    timerDisplayElement.style.display = 'block';
+
+                    updatePlayer();
+                    updateBalls();
+
+                    drawPlayer();
+                    balls.forEach(drawBall);
+
+                    checkCollisions();
+                } else if (gameOver) {
+                    ctx.font = '30px Arial';
+                    ctx.fillStyle = 'black';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('Game Over!', canvas.width / 2, canvas.height / 2 - 20);
+                    ctx.fillText(`Time survived: ${elapsedTime.toFixed(3)}s`, canvas.width / 2, canvas.height / 2 + 20);
+                    startButton.style.display = 'block'; // Make the button visible again
+                    timerDisplayElement.style.display = 'none';
+                    nameInputContainer.style.display = 'flex'; // Show the name input
+                }
+            }
+
+            function updatePlayer() {
+                if (leftPressed && playerX > 0) {
+                    playerX -= playerSpeed;
+                }
+                if (rightPressed && playerX < canvas.width - playerSize) {
+                    playerX += playerSpeed;
+                }
+                if (upPressed && playerY > 0) {
+                    playerY -= playerSpeed;
+                }
+                if (downPressed && playerY < canvas.height - playerSize) {
+                    playerY += playerSpeed;
+                }
+            }
+
+            function checkCollisions() {
+                for (let i = 0; i < balls.length; i++) {
+                    const ball = balls[i];
+
+                    // Find the closest point on the rectangle to the center of the circle
+                    let closestX = Math.max(playerX, Math.min(ball.x, playerX + playerSize));
+                    let closestY = Math.max(playerY, Math.min(ball.y, playerY + playerSize));
+
+                    // Calculate the distance between the circle's center and this closest point
+                    const distanceX = ball.x - closestX;
+                    const distanceY = ball.y - closestY;
+                    const distanceSquared = (distanceX * distanceX) + (distanceY * distanceY);
+
+                    // If the distance squared is less than the circle's radius squared, they are colliding
+                    if (distanceSquared < (ball.radius * ball.radius)) {
+                        gameOver = true;
+                        gameStarted = false;
+                        clearInterval(intervalId);
+                        startButton.style.display = 'block'; // Make the button visible immediately upon collision
+                        timerDisplayElement.style.display = 'none';
+                        nameInputContainer.style.display = 'flex'; // Show the name input
+                        break; // No need to check other balls if the game is over
+                    }
+                }
+            }
+
+            submitScoreButton.addEventListener('click', function() {
+                const playerName = playerNameInput.value.trim();
+                if (playerName) {
+                    saveScore(playerName, elapsedTime);
+                    playerNameInput.value = ''; // Clear the input field
+                    nameInputContainer.style.display = 'none'; // Hide the input again
+                    displayLeaderboard(); // Update the displayed leaderboard
+                } else {
+                    alert('Please enter your name.');
+                }
+            });
+
+            function saveScore(name, score) {
+                const newScore = { name: name, score: score };
+                scores.push(newScore);
+                scores.sort((a, b) => b.score - a.score); // Sort by score (descending)
+                scores = scores.slice(0, 3); // Keep only the top 3
+                localStorage.setItem('topScores', JSON.stringify(scores));
+            }
+
+            function loadScores() {
+                const storedScores = localStorage.getItem('topScores');
+                return storedScores ? JSON.parse(storedScores) : [];
+            }
+
+            function displayLeaderboard() {
+                leaderboardElement.innerHTML = ''; // Clear the current leaderboard
+                scores.forEach((entry, index) => {
+                    const listItem = document.createElement('li');
+                    listItem.textContent = `${index + 1}. ${entry.name}: ${entry.score.toFixed(3)}s`;
+                    leaderboardElement.appendChild(listItem);
+                });
+            }
+
+            // Event listeners for player movement
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Left' || e.key === 'ArrowLeft') {
+                    leftPressed = true;
+                }
+                if (e.key === 'Right' || e.key === 'ArrowRight') {
+                    rightPressed = true;
+                }
+                if (e.key === 'Up' || e.key === 'ArrowUp') {
+                    upPressed = true;
+                }
+                if (e.key === 'Down' || e.key === 'ArrowDown') {
+                    downPressed = true;
+                }
+            });
+
+            document.addEventListener('keyup', function(e) {
+                if (e.key === 'Left' || e.key === 'ArrowLeft') {
+                    leftPressed = false;
+                }
+                if (e.key === 'Right' || e.key === 'ArrowRight') {
+                    rightPressed = false;
+                }
+                if (e.key === 'Up' || e.key === 'ArrowUp') {
+                    upPressed = false;
+                }
+                if (e.key === 'Down' || e.key === 'ArrowDown') {
+                    downPressed = false;
+                }
+            });
+
+            // Start button event listener
+            startButton.addEventListener('click', initializeGame);
+
+            // Display initial leaderboard on page load
+            displayLeaderboard();
+
+            // Initialize balls on page load (before game starts)
+            initializeBalls();
+            balls.forEach(drawBall);
+        });
+    </script>
+</body>
+</html>

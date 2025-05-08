@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plane Avoider</title>
+    <!-- Link to common CSS. Adjust path as needed. -->
+    <link rel="stylesheet" href="../../common/css/common-styles.css">
+    <!-- If you still use Tailwind CDN for game-specific overrides, include it -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Optional: Game-specific styles can go here */
+        .game-over-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #dc2626; /* red-600 */
+            font-size: 2.5rem; /* text-4xl */
+            font-weight: bold;
+            text-align: center;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+        }
+        .score {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 1.5rem;
+            color: #1e3a8a; /* blue-800 */
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1 class="text-3xl font-bold text-center text-slate-700 mb-6">Plane Avoider</h1>
+
+        <div class="controls mb-2 text-center">
+            <p class="text-sm text-slate-600">Use Arrow Keys to Move. Avoid the balls!</p>
+            <button id="startGameBtn" class="btn mt-2">Start Game</button>
+        </div>
+
+        <div style="position: relative;"> <!-- Container for canvas and overlay messages -->
+            <canvas id="gameCanvas"></canvas>
+            <div id="scoreDisplay" class="score" style="display: none;">Score: 0</div>
+            <div id="gameOverMessage" class="game-over-message" style="display: none;">
+                Game Over!
+                <button id="restartGameBtn" class="btn bg-green-600 hover:bg-green-700 mt-4">Play Again?</button>
+            </div>
+        </div>
+
+        <p class="text-sm text-slate-500 mt-4 text-center">
+            Balls split every 5 seconds. How long can you survive?
+        </p>
+    </div>
+
+    <!-- Message box for general messages (optional for this game) -->
+    <!-- <div id="messageBox" class="message-box"></div> -->
+
+    <script type="module" src="game.js"></script>
+</body>
+</html> 

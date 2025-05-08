@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Still-Root Plant Game",
+  "version": "1.0",
+  "description": "A simple canvas game demonstrating the Still-Root effect.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png"
+    },
+    "default_title": "Still-Root Plant Game",
+    "default_popup": "popup.html"
+  }
+} 

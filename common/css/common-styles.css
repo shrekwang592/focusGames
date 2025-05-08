@@ -1,0 +1,68 @@
+/* Basic body styles if needed, or your Tailwind @import/@layer directives if you compile it */
+body {
+    font-family: 'Inter', sans-serif; /* From your original example */
+    touch-action: none;
+    background-color: #f8fafc; /* slate-50, or keep it in game-specific HTML if it varies */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: screen; /* Or 100vh */
+    padding: 1rem; /* Or p-4 */
+}
+
+canvas {
+    display: block;
+    background-color: #f0f9ff; /* sky-100 */
+    border-radius: 0.5rem; /* rounded-lg */
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* shadow-md */
+}
+
+.game-container {
+    width: 90%;
+    max-width: 800px;
+    margin: 2rem auto;
+    background-color: white;
+    padding: 1.5rem; /* p-6 */
+    border-radius: 0.75rem; /* rounded-xl */
+    box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); /* shadow-2xl */
+}
+
+.controls {
+    margin-bottom: 1rem;
+    text-align: center;
+}
+
+.btn {
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    color: white;
+    background-color: #2563eb; /* blue-600 */
+    transition: background-color 0.3s;
+    cursor: pointer;
+    border: none;
+}
+.btn:hover {
+    background-color: #1d4ed8; /* blue-700 */
+}
+.btn-active {
+    background-color: #16a34a; /* green-600 */
+}
+.btn-active:hover {
+    background-color: #15803d; /* green-700 */
+}
+
+.message-box {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0,0,0,0.7);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 5px;
+    z-index: 1000;
+    display: none; /* Hidden by default */
+}
+/* Add other common styles */ 

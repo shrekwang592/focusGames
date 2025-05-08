@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Still-Root Plant Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            touch-action: none; /* Prevent scrolling on touch devices when interacting with canvas */
+        }
+        canvas {
+            display: block;
+            background-color: #f0f9ff; /* sky-100 */
+            border-radius: 0.5rem; /* rounded-lg */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* shadow-md */
+        }
+        .game-container {
+            width: 90%;
+            max-width: 800px;
+            margin: 2rem auto;
+        }
+        .controls {
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            color: white;
+            background-color: #2563eb; /* blue-600 */
+            transition: background-color 0.3s;
+            cursor: pointer;
+            border: none;
+        }
+        .btn:hover {
+            background-color: #1d4ed8; /* blue-700 */
+        }
+        .btn-active {
+            background-color: #16a34a; /* green-600 */
+        }
+        .btn-active:hover {
+            background-color: #15803d; /* green-700 */
+        }
+        .message-box {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0,0,0,0.7);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            z-index: 1000;
+            display: none; /* Hidden by default */
+        }
+    </style>
+</head>
+<body class="bg-slate-100 flex flex-col items-center justify-center min-h-screen p-4">
+
+    <div class="game-container bg-white p-6 rounded-xl shadow-2xl">
+        <h1 class="text-3xl font-bold text-center text-slate-700 mb-6">Still-Root Plant Demo</h1>
+        
+        <div class="controls">
+            <button id="toggleStillRootBtn" class="btn">Activate Still-Root</button>
+        </div>
+
+        <canvas id="gameCanvas"></canvas>
+        <p class="text-sm text-slate-500 mt-4 text-center">
+            Click the button to activate/deactivate the Still-Root. Particles entering its green aura will slow down.
+        </p>
+    </div>
+
+    <div id="messageBox" class="message-box"></div>
+
+    <script>
+        // Get canvas and context
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const toggleStillRootBtn = document.getElementById('toggleStillRootBtn');
+        const messageBox = document.getElementById('messageBox');
+
+        // --- Configuration ---
+        const PARTICLE_COUNT = 50;
+        const PARTICLE_RADIUS = 5;
+        const PARTICLE_COLOR = '#3b82f6'; // blue-500
+        const PARTICLE_SLOW_COLOR = '#60a5fa'; // blue-400
+        const NORMAL_SPEED_MIN = 0.5;
+        const NORMAL_SPEED_MAX = 1.5;
+        const SLOWED_SPEED_FACTOR = 0.1; // 10% of normal speed
+
+        const STILL_ROOT_RADIUS = 100; // Radius of the plant's effect
+        const STILL_ROOT_PLANT_RADIUS = 15; // Visual radius of the plant itself
+        const STILL_ROOT_COLOR_EFFECT = 'rgba(74, 222, 128, 0.3)'; // green-400 with alpha
+        const STILL_ROOT_COLOR_PLANT = '#16a34a'; // green-600
+
+        let particles = [];
+        let stillRoot = {
+            x: 0, // Will be set to canvas center
+            y: 0, // Will be set to canvas center
+            radius: STILL_ROOT_RADIUS,
+            plantRadius: STILL_ROOT_PLANT_RADIUS,
+            isActive: false,
+            colorEffect: STILL_ROOT_COLOR_EFFECT,
+            colorPlant: STILL_ROOT_COLOR_PLANT
+        };
+
+        // --- Utility Functions ---
+        function getRandom(min, max) {
+            return Math.random() * (max - min) + min;
+        }
+
+        function distance(x1, y1, x2, y2) {
+            const dx = x1 - x2;
+            const dy = y1 - y2;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+
+        function showMessage(message, duration = 2000) {
+            messageBox.textContent = message;
+            messageBox.style.display = 'block';
+            setTimeout(() => {
+                messageBox.style.display = 'none';
+            }, duration);
+        }
+
+        // --- Particle Class ---
+        class Particle {
+            constructor(x, y, radius, color) {
+                this.x = x;
+                this.y = y;
+                this.radius = radius;
+                this.color = color;
+                this.originalSpeedX = getRandom(NORMAL_SPEED_MIN, NORMAL_SPEED_MAX) * (Math.random() < 0.5 ? 1 : -1);
+                this.originalSpeedY = getRandom(NORMAL_SPEED_MIN, NORMAL_SPEED_MAX) * (Math.random() < 0.5 ? 1 : -1);
+                this.vx = this.originalSpeedX;
+                this.vy = this.originalSpeedY;
+                this.isSlowed = false;
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.isSlowed ? PARTICLE_SLOW_COLOR : this.color;
+                ctx.fill();
+                ctx.closePath();
+            }
+
+            update() {
+                // Check for Still-Root effect
+                const distToStillRoot = distance(this.x, this.y, stillRoot.x, stillRoot.y);
+                
+                if (stillRoot.isActive && distToStillRoot < stillRoot.radius + this.radius) {
+                    if (!this.isSlowed) {
+                        this.vx *= SLOWED_SPEED_FACTOR;
+                        this.vy *= SLOWED_SPEED_FACTOR;
+                        this.isSlowed = true;
+                    }
+                } else {
+                    if (this.isSlowed) {
+                        this.vx = this.originalSpeedX; // Restore original speed
+                        this.vy = this.originalSpeedY;
+                        this.isSlowed = false;
+                    }
+                }
+
+                // Move particle
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Boundary collision (bounce)
+                if (this.x - this.radius < 0 || this.x + this.radius > canvas.width) {
+                    this.vx *= -1;
+                    this.x = Math.max(this.radius, Math.min(this.x, canvas.width - this.radius)); // Prevent sticking
+                }
+                if (this.y - this.radius < 0 || this.y + this.radius > canvas.height) {
+                    this.vy *= -1;
+                    this.y = Math.max(this.radius, Math.min(this.y, canvas.height - this.radius)); // Prevent sticking
+                }
+            }
+        }
+
+        // --- Still-Root Functions ---
+        function drawStillRoot() {
+            if (!stillRoot.isActive) return;
+
+            // Draw effect area
+            ctx.beginPath();
+            ctx.arc(stillRoot.x, stillRoot.y, stillRoot.radius, 0, Math.PI * 2);
+            ctx.fillStyle = stillRoot.colorEffect;
+            ctx.fill();
+            ctx.closePath();
+
+            // Draw plant core
+            ctx.beginPath();
+            ctx.arc(stillRoot.x, stillRoot.y, stillRoot.plantRadius, 0, Math.PI * 2);
+            ctx.fillStyle = stillRoot.colorPlant;
+            ctx.fill();
+            ctx.strokeStyle = '#059669'; // emerald-600 for border
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.closePath();
+        }
+
+        // --- Game Setup ---
+        function init() {
+            resizeCanvas(); // Set initial canvas size
+
+            // Set Still-Root position to center of canvas
+            stillRoot.x = canvas.width / 2;
+            stillRoot.y = canvas.height / 2;
+
+            // Create particles
+            particles = []; // Clear existing particles if any (e.g., on resize)
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                const x = getRandom(PARTICLE_RADIUS, canvas.width - PARTICLE_RADIUS);
+                const y = getRandom(PARTICLE_RADIUS, canvas.height - PARTICLE_RADIUS);
+                // Ensure particles don't spawn directly on the still root if it's initially active (though it's not)
+                if (stillRoot.isActive && distance(x, y, stillRoot.x, stillRoot.y) < stillRoot.radius + PARTICLE_RADIUS) {
+                    // If too close, try a different position (simple retry, could be improved)
+                    i--; 
+                    continue;
+                }
+                particles.push(new Particle(x, y, PARTICLE_RADIUS, PARTICLE_COLOR));
+            }
+            if (!animationFrameId) { // Start animation only if not already running
+                animate();
+            }
+        }
+        
+        // --- Animation Loop ---
+        let animationFrameId = null;
+        function animate() {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Still-Root first (so particles are on top)
+            drawStillRoot();
+
+            // Update and draw particles
+            particles.forEach(particle => {
+                particle.update();
+                particle.draw();
+            });
+
+            animationFrameId = requestAnimationFrame(animate);
+        }
+
+        // --- Event Listeners ---
+        toggleStillRootBtn.addEventListener('click', () => {
+            stillRoot.isActive = !stillRoot.isActive;
+            if (stillRoot.isActive) {
+                toggleStillRootBtn.textContent = 'Deactivate Still-Root';
+                toggleStillRootBtn.classList.add('btn-active');
+                showMessage('Still-Root Activated!', 1500);
+            } else {
+                toggleStillRootBtn.textContent = 'Activate Still-Root';
+                toggleStillRootBtn.classList.remove('btn-active');
+                showMessage('Still-Root Deactivated!', 1500);
+                // Ensure all particles return to normal speed immediately
+                particles.forEach(p => {
+                    if (p.isSlowed) {
+                        p.vx = p.originalSpeedX;
+                        p.vy = p.originalSpeedY;
+                        p.isSlowed = false;
+                    }
+                });
+            }
+        });
+
+        // --- Responsive Canvas ---
+        function resizeCanvas() {
+            const container = canvas.parentElement; // Get the .game-container
+            // Maintain a 4:3 aspect ratio for the canvas, or fill width if height is constrained
+            let newWidth = container.clientWidth - (parseInt(getComputedStyle(container).paddingLeft) + parseInt(getComputedStyle(container).paddingRight));
+            let newHeight = newWidth * (3/4); 
+
+            // If the calculated height is too much for the screen, adjust based on available height
+            const maxCanvasHeight = window.innerHeight * 0.6; // Use 60% of viewport height as a max
+            if (newHeight > maxCanvasHeight) {
+                newHeight = maxCanvasHeight;
+                newWidth = newHeight * (4/3);
+            }
+            
+            canvas.width = newWidth;
+            canvas.height = newHeight;
+
+            // Update Still-Root position if canvas resizes
+            if (stillRoot) { // Check if stillRoot is initialized
+                 stillRoot.x = canvas.width / 2;
+                 stillRoot.y = canvas.height / 2;
+            }
+           
+            // Re-initialize particles if they exist, to fit new canvas size
+            // This simple re-init will respawn them. A more complex approach might try to reposition them.
+            if (particles.length > 0) {
+                initParticles(); // Separate particle init from full init
+            }
+        }
+        
+        function initParticles() {
+            particles = [];
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                const x = getRandom(PARTICLE_RADIUS, canvas.width - PARTICLE_RADIUS);
+                const y = getRandom(PARTICLE_RADIUS, canvas.height - PARTICLE_RADIUS);
+                particles.push(new Particle(x, y, PARTICLE_RADIUS, PARTICLE_COLOR));
+            }
+        }
+
+
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+            // If animation is running, it will adapt. If not, init will handle setup.
+            // No need to call init() directly here if particles are re-initialized by resizeCanvas
+            // and animate loop is robust.
+            // Call initParticles to regenerate particles for the new size
+            initParticles(); 
+        });
+
+        // --- Initial Load ---
+        // Use window.onload to ensure all elements are loaded, especially for font loading if that affects layout.
+        window.onload = function() {
+            init(); // Initialize and start the animation
+        };
+
+    </script>
+</body>
+</html>

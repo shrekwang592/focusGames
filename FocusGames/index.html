@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>FocusGames Collection</title> <!-- Or "My 100 Games Collection" -->
+    <!-- This links to the common CSS for basic page styling -->
+    <link rel="stylesheet" href="common/css/common-styles.css">
+    <style>
+        /* Styles specific to this main list page */
+        body {
+            display: block; /* Overrides flex from common-styles if it's set there for game pages */
+            padding: 20px;
+            font-family: 'Inter', sans-serif; /* Ensuring font consistency */
+            background-color: #f8fafc; /* A light background */
+        }
+        h1 {
+            text-align: center;
+            color: #1e293b; /* slate-800 */
+            margin-bottom: 30px;
+        }
+        ul {
+            list-style: none;
+            padding: 0;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        li {
+            margin-bottom: 10px;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        li a {
+            display: block;
+            padding: 15px 20px;
+            text-decoration: none;
+            color: #2563eb; /* blue-600 */
+            font-weight: 600;
+            transition: background-color 0.2s ease-in-out;
+        }
+        li a:hover {
+            background-color: #eff6ff; /* blue-50 */
+            text-decoration: none; /* Keep no underline on hover for this style */
+        }
+    </style>
+    <!-- You might want to link Google Fonts here too if not covered by common-styles.css -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <h1>FocusGames Collection</h1>
+    <ul>
+        <li><a href="games/game001_still_root/index.html">Game 1: Still-Root Plant Demo</a></li>
+        <li><a href="games/game002_plane_avoider/index.html">Game 2: Plane Avoider</a></li>
+        <!-- Add links to all your other games here as you create them -->
+        <!-- Example: <li><a href="games/game003_my_next_game/index.html">Game 3: My Next Awesome Game</a></li> -->
+    </ul>
+</body>
+</html> 
